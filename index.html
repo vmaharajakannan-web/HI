@@ -1,3 +1,4 @@
+```html
 <!doctype html>
 <html lang="en">
 <head>
@@ -37,7 +38,7 @@
       padding:40px 34px;
       box-shadow: 0 20px 60px rgba(0,0,0,.18);
       position:relative;
-      z-index:2;
+      z-index:2; /* above petals */
     }
 
     h1{
@@ -118,12 +119,12 @@
     }
     .result p{ margin:0; font-size: 18px; line-height:1.35; }
 
-    /* Rose layer */
+    /* Petal layer */
     canvas{
       position:fixed;
       inset:0;
       pointer-events:none;
-      z-index:1;
+      z-index:1; /* behind card, above background */
     }
 
     .heart{
@@ -147,7 +148,8 @@
   </style>
 </head>
 <body>
-  <canvas id="roses"></canvas>
+  <!-- renamed canvas so there's no old confetti confusion -->
+  <canvas id="petals"></canvas>
 
   <div class="card">
     <h1>
@@ -203,9 +205,9 @@
     const arena = document.getElementById("arena");
     const noBtn = document.getElementById("noBtn");
 
-    let noScale = 1.9;
-    const shrinkFactor = 0.84;
-    const minScale = 0.18;
+    let noScale = 1.9;           // starts BIG
+    const shrinkFactor = 0.84;   // shrinks each attempt
+    const minScale = 0.18;       // minimum tiny size
     const baseTranslateX = 160;
 
     function setNoTransform() {
@@ -240,7 +242,7 @@
       setNoTransform();
     });
 
-    // YES message + ROSES (no confetti exists in this file)
+    // YES button message + petal rain
     const yesBtn = document.getElementById("yesBtn");
     const result = document.getElementById("result");
     const finalMsg = document.getElementById("finalMsg");
@@ -250,14 +252,14 @@
       finalMsg.textContent =
         `Hi ${to} , happy Kadhalar Dinam (thats valentines day btw) (since your vadaki) Love you Mwhaaaaa`;
 
-      rosesBurst();
+      startPetalRain();
 
       noBtn.style.pointerEvents = "none";
       noBtn.style.opacity = "0.55";
     });
 
-    // 🌹 ROSES FROM BOTH SIDES
-    const canvas = document.getElementById("roses");
+    // 🌸🌹 Petal rain from the TOP
+    const canvas = document.getElementById("petals");
     const ctx = canvas.getContext("2d");
     let W, H, DPR;
 
@@ -271,87 +273,84 @@
 
     function rand(min, max){ return Math.random() * (max - min) + min; }
 
-    let roses = [];
-    let animating = false;
+    let petals = [];
+    let raining = false;
+    let spawnUntil = 0;
 
-    function rosesBurst(){
-      roses = [];
-      const perSide = 60;
+    function spawnPetal() {
+      // Use petals/flowers emojis to look like rose petals
+      const glyphs = ["🌹", "🌸", "🌺", "💮", "🌷"];
+      const g = glyphs[Math.floor(Math.random() * glyphs.length)];
 
-      const yMin = H * 0.25;
-      const yMax = H * 0.85;
-
-      function spawn(fromLeft){
-        const x = fromLeft ? -80 * DPR : W + 80 * DPR;
-        const y = rand(yMin, yMax);
-        const size = rand(26, 52) * DPR;
-
-        const vx = (fromLeft ? 1 : -1) * rand(7, 13) * DPR;
-        const vy = rand(-8.5, -3) * DPR;
-
-        roses.push({
-          x, y, vx, vy,
-          g: rand(0.18, 0.32) * DPR,
-          drag: rand(0.985, 0.995),
-          size,
-          rot: rand(0, Math.PI * 2),
-          vrot: rand(-0.08, 0.08),
-          a: 1
-        });
-      }
-
-      for(let i=0;i<perSide;i++){
-        spawn(true);
-        spawn(false);
-      }
-
-      if (!animating) {
-        animating = true;
-        requestAnimationFrame(tickRoses);
-      }
+      petals.push({
+        x: rand(0, W),
+        y: rand(-120 * DPR, -20 * DPR),
+        vx: rand(-0.9, 0.9) * DPR,
+        vy: rand(2.0, 4.6) * DPR,
+        drift: rand(0.008, 0.02),          // sideways wave
+        phase: rand(0, Math.PI * 2),
+        rot: rand(0, Math.PI * 2),
+        vrot: rand(-0.05, 0.05),
+        size: rand(22, 44) * DPR,
+        a: 1,
+        glyph: g
+      });
     }
 
-    function tickRoses(){
+    function startPetalRain() {
+      petals = [];
+      raining = true;
+
+      // Rain for ~6 seconds (and existing petals finish falling)
+      spawnUntil = performance.now() + 6000;
+
+      // initial burst
+      for (let i=0; i<40; i++) spawnPetal();
+
+      requestAnimationFrame(tickPetals);
+    }
+
+    function tickPetals(t) {
       ctx.clearRect(0, 0, W, H);
 
-      for (const p of roses) {
-        p.vy += p.g;
-        p.vx *= p.drag;
-        p.vy *= p.drag;
+      // keep spawning while timer is active
+      if (t < spawnUntil) {
+        // spawn rate (more = heavier rain)
+        const toSpawn = 3;
+        for (let i=0; i<toSpawn; i++) spawnPetal();
+      }
 
-        p.x += p.vx;
+      for (const p of petals) {
+        p.phase += p.drift * 60;
+        p.x += p.vx + Math.sin(p.phase) * (0.8 * DPR);
         p.y += p.vy;
-
         p.rot += p.vrot;
-        p.a -= 0.0065;
+
+        // fade slightly near bottom
+        if (p.y > H * 0.85) p.a -= 0.01;
 
         ctx.save();
         ctx.globalAlpha = Math.max(0, p.a);
         ctx.translate(p.x, p.y);
         ctx.rotate(p.rot);
-
-        // emoji rose
         ctx.font = `${p.size}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",system-ui`;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.fillText("🌹", 0, 0);
-
+        ctx.fillText(p.glyph, 0, 0);
         ctx.restore();
       }
 
-      roses = roses.filter(p =>
-        p.a > 0 &&
-        p.x > -300 * DPR && p.x < W + 300 * DPR &&
-        p.y < H + 300 * DPR
-      );
+      // remove off-screen / invisible petals
+      petals = petals.filter(p => p.a > 0 && p.y < H + 120 * DPR);
 
-      if (roses.length) {
-        requestAnimationFrame(tickRoses);
+      if (t < spawnUntil || petals.length) {
+        requestAnimationFrame(tickPetals);
       } else {
-        animating = false;
+        raining = false;
         ctx.clearRect(0, 0, W, H);
       }
     }
   </script>
 </body>
 </html>
+```
