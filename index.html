@@ -1,3 +1,4 @@
+```html
 <!doctype html>
 <html lang="en">
 <head>
@@ -238,7 +239,7 @@
       setNoTransform();
     });
 
-    // YES button final message (exact text you wanted)
+    // YES button final message
     const yesBtn = document.getElementById("yesBtn");
     const result = document.getElementById("result");
     const finalMsg = document.getElementById("finalMsg");
@@ -248,81 +249,112 @@
       finalMsg.textContent =
         `Hi ${to} , happy Kadhalar Dinam (thats valentines day btw) (since your vadaki) Love you Mwhaaaaa`;
 
-      confettiBurst();
+      rosesBurst();
 
       noBtn.style.pointerEvents = "none";
       noBtn.style.opacity = "0.55";
     });
 
-    // Confetti
+    // 🌹 Roses animation (from BOTH sides)
     const canvas = document.getElementById("confetti");
     const ctx = canvas.getContext("2d");
-    let W, H;
+    let W, H, DPR;
 
     function resize() {
-      W = canvas.width = window.innerWidth * devicePixelRatio;
-      H = canvas.height = window.innerHeight * devicePixelRatio;
+      DPR = window.devicePixelRatio || 1;
+      W = canvas.width = Math.floor(window.innerWidth * DPR);
+      H = canvas.height = Math.floor(window.innerHeight * DPR);
     }
     window.addEventListener("resize", resize);
     resize();
 
     function rand(min, max){ return Math.random() * (max - min) + min; }
 
-    let confetti = [];
-    function confettiBurst(){
-      confetti = [];
-      const count = 240;
-      for(let i=0;i<count;i++){
-        confetti.push({
-          x: W/2,
-          y: H/3,
-          vx: rand(-9, 9) * devicePixelRatio,
-          vy: rand(-14, -5) * devicePixelRatio,
-          g: rand(0.22, 0.42) * devicePixelRatio,
-          s: rand(5, 11) * devicePixelRatio,
-          r: rand(0, Math.PI*2),
-          vr: rand(-0.25, 0.25),
+    let roses = [];
+    let animating = false;
+
+    function rosesBurst(){
+      roses = [];
+      const perSide = 55; // increase if you want more roses
+      const yMin = H * 0.25;
+      const yMax = H * 0.8;
+
+      function spawn(side){ // side: "L" or "R"
+        const fromLeft = side === "L";
+        const x = fromLeft ? -30 * DPR : W + 30 * DPR;
+        const y = rand(yMin, yMax);
+        const size = rand(24, 44) * DPR;
+
+        // velocity: toward center + a bit upward
+        const vx = (fromLeft ? 1 : -1) * rand(5.5, 10.5) * DPR;
+        const vy = rand(-8.5, -3.5) * DPR;
+
+        roses.push({
+          x, y, vx, vy,
+          g: rand(0.18, 0.32) * DPR,    // gravity
+          drag: rand(0.985, 0.995),     // slight air drag
+          size,
+          rot: rand(0, Math.PI * 2),
+          vrot: rand(-0.08, 0.08),
           a: 1
         });
       }
-      requestAnimationFrame(tick);
+
+      for(let i=0;i<perSide;i++){
+        spawn("L");
+        spawn("R");
+      }
+
+      if (!animating) {
+        animating = true;
+        requestAnimationFrame(tickRoses);
+      }
     }
 
-    function tick(){
-      ctx.clearRect(0,0,W,H);
-      confetti.forEach(p => {
+    function tickRoses(){
+      ctx.clearRect(0, 0, W, H);
+
+      // draw
+      for (const p of roses) {
         p.vy += p.g;
+        p.vx *= p.drag;
+        p.vy *= p.drag;
+
         p.x += p.vx;
         p.y += p.vy;
-        p.r += p.vr;
-        p.a -= 0.006;
+
+        p.rot += p.vrot;
+        p.a -= 0.0065;
 
         ctx.save();
         ctx.globalAlpha = Math.max(0, p.a);
         ctx.translate(p.x, p.y);
-        ctx.rotate(p.r);
+        ctx.rotate(p.rot);
 
-        const hue = (p.x / W) * 360;
-        ctx.fillStyle = `hsl(${hue}, 90%, 60%)`;
+        // emoji roses
+        ctx.font = `${p.size}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",system-ui`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("🌹", 0, 0);
 
-        if (Math.random() < 0.35) {
-          ctx.beginPath();
-          const s = p.s;
-          ctx.moveTo(0, s/4);
-          ctx.bezierCurveTo(0, -s/2, -s, -s/2, -s, s/6);
-          ctx.bezierCurveTo(-s, s, 0, s, 0, s*1.25);
-          ctx.bezierCurveTo(0, s, s, s, s, s/6);
-          ctx.bezierCurveTo(s, -s/2, 0, -s/2, 0, s/4);
-          ctx.fill();
-        } else {
-          ctx.fillRect(-p.s/2, -p.s/2, p.s, p.s);
-        }
         ctx.restore();
-      });
+      }
 
-      confetti = confetti.filter(p => p.a > 0 && p.y < H + 50*devicePixelRatio);
-      if(confetti.length) requestAnimationFrame(tick);
+      // keep only visible
+      roses = roses.filter(p =>
+        p.a > 0 &&
+        p.x > -200 * DPR && p.x < W + 200 * DPR &&
+        p.y < H + 200 * DPR
+      );
+
+      if (roses.length) {
+        requestAnimationFrame(tickRoses);
+      } else {
+        animating = false;
+        ctx.clearRect(0, 0, W, H);
+      }
     }
   </script>
 </body>
 </html>
+```
